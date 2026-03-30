@@ -105,8 +105,8 @@ export default function App() {
     if (filterPending && r.status !== 'pending') return false
     if (search) {
       const q = search.toLowerCase()
-      const matchPhone = (r.phone || '').toLowerCase().includes(q)
-      const matchName = (r.customer_name || '').toLowerCase().includes(q)
+      const matchPhone = String(r.phone || '').toLowerCase().includes(q)
+      const matchName = String(r.customer_name || '').toLowerCase().includes(q)
       if (!matchPhone && !matchName) return false
     }
     return true
