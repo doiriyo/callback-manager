@@ -228,6 +228,18 @@ export default function App() {
                 {submitting ? '登録中...' : '登録する'}
               </button>
             </form>
+            <div className="templates">
+              <div className="templates-label">テンプレート</div>
+              {[
+                `電話したが不在でした。折り返しがあれば${operatorName}まで。`,
+                'の件で電話しました。',
+                `折り返しがあれば${operatorName}まで。`,
+              ].map((t, i) => (
+                <button key={i} type="button" className="template-btn" onClick={() => setMemo((prev) => prev ? prev + t : t)}>
+                  {t}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
