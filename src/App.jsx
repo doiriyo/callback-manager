@@ -12,9 +12,8 @@ function gasPost(body) {
   })
 }
 
-async function fetchCallbacks(status) {
+async function fetchCallbacks() {
   const body = { action: 'get_callbacks', api_key: GAS_API_KEY }
-  if (status) body.status = status
   const res = await fetch(GAS_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain' },
@@ -24,10 +23,24 @@ async function fetchCallbacks(status) {
   return data.records || []
 }
 
-function toLocalDatetime(date) {
-  const d = date || new Date()
+function toLocalDatetime() {
+  const d = new Date()
   const pad = (n) => String(n).padStart(2, '0')
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+function groupByPhone(records) {
+  const map = {}
+  for (const r of records) {
+    const phone = String(r.phone || '')
+    if (!map[phone]) {
+      map[phone] = { phone, customer_name: r.customer_name, entries: [] }
+    }
+    map[phone].entries.push(r)
+    // 最新の顧客名で更新
+    if (r.customer_name) map[phone].customer_name = r.customer_name
+  }
+  return Object.values(map)
 }
 
 export default function App() {
@@ -36,6 +49,7 @@ export default function App() {
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [selectedPhone, setSelectedPhone] = useState(null)
 
   // Form state
   const [phone, setPhone] = useState('')
@@ -88,160 +102,159 @@ export default function App() {
 
   const handleDone = async (id) => {
     try {
-      await gasPost({
-        action: 'update_callback',
-        id,
-        status: 'done',
-      })
+      await gasPost({ action: 'update_callback', id, status: 'done' })
       setTimeout(loadRecords, 1500)
     } catch (e) {
       console.error('更新エラー:', e)
     }
   }
 
-  const filtered = records.filter((r) => {
-    if (filterPending && r.status !== 'pending') return false
+  // グループ化 & フィルタリング
+  const groups = groupByPhone(records)
+  const filteredGroups = groups.filter((g) => {
+    const hasPending = g.entries.some((e) => e.status === 'pending')
+    if (filterPending && !hasPending) return false
     if (search) {
       const q = search.toLowerCase()
-      const matchPhone = String(r.phone || '').toLowerCase().includes(q)
-      const matchName = String(r.customer_name || '').toLowerCase().includes(q)
-      if (!matchPhone && !matchName) return false
+      if (!String(g.phone).toLowerCase().includes(q) && !String(g.customer_name || '').toLowerCase().includes(q)) return false
     }
     return true
+  }).sort((a, b) => {
+    // 最新の未対応エントリのcreated_atでソート（新しい順）
+    const latestA = a.entries.filter((e) => e.status === 'pending').sort((x, y) => (y.created_at || '').localeCompare(x.created_at || ''))[0]
+    const latestB = b.entries.filter((e) => e.status === 'pending').sort((x, y) => (y.created_at || '').localeCompare(x.created_at || ''))[0]
+    const dateA = latestA?.created_at || a.entries[a.entries.length - 1]?.created_at || ''
+    const dateB = latestB?.created_at || b.entries[b.entries.length - 1]?.created_at || ''
+    return dateB.localeCompare(dateA)
   })
 
-  const pendingCount = records.filter((r) => r.status === 'pending').length
+  // 選択中の顧客のログ
+  const selectedGroup = selectedPhone ? groups.find((g) => g.phone === selectedPhone) : null
+  const selectedEntries = selectedGroup
+    ? [...selectedGroup.entries].sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''))
+    : []
+
+  // サマリー
+  const pendingPhones = groups.filter((g) => g.entries.some((e) => e.status === 'pending')).length
   const todayStr = new Date().toISOString().slice(0, 10)
-  const todayCount = records.filter((r) => (r.created_at || '').slice(0, 10) === todayStr).length
-  const doneCount = records.filter((r) => r.status === 'done').length
+  const todayCount = records.filter((r) => (r.created_at || '').slice(0, 10) === todayStr && !(r.memo || '').startsWith('【ステータス変更】')).length
+  const donePhones = groups.filter((g) => g.entries.every((e) => e.status === 'done')).length
 
   return (
     <div className="page">
-      <h1>コールバック管理</h1>
+      <header className="page-header">
+        <h1>コールバック管理</h1>
+        <div className="summary">
+          <div className="card pending-card">
+            <div className="card-value">{pendingPhones}</div>
+            <div className="card-label">未対応</div>
+          </div>
+          <div className="card today-card">
+            <div className="card-value">{todayCount}</div>
+            <div className="card-label">本日登録</div>
+          </div>
+          <div className="card done-card">
+            <div className="card-value">{donePhones}</div>
+            <div className="card-label">対応済</div>
+          </div>
+        </div>
+      </header>
 
-      {/* サマリー */}
-      <div className="summary">
-        <div className="card pending-card">
-          <div className="card-value">{pendingCount}</div>
-          <div className="card-label">未対応</div>
-        </div>
-        <div className="card today-card">
-          <div className="card-value">{todayCount}</div>
-          <div className="card-label">本日登録</div>
-        </div>
-        <div className="card done-card">
-          <div className="card-value">{doneCount}</div>
-          <div className="card-label">対応済</div>
-        </div>
-      </div>
-
-      {/* 2カラムレイアウト */}
       <div className="columns">
-        {/* 左: 新規登録フォーム */}
-        <div className="col-left">
-          <form className="form" onSubmit={handleSubmit}>
+        {/* 左: 新規登録 */}
+        <div className="col col-form">
+          <div className="panel">
             <h2>新規登録</h2>
-            <input
-              type="tel"
-              placeholder="電話番号 *"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              required
-            />
-            <input
-              type="text"
-              placeholder="顧客名 *"
-              value={customerName}
-              onChange={(e) => setCustomerName(e.target.value)}
-              required
-            />
-            <input
-              type="text"
-              placeholder="担当者名 *"
-              value={assignee}
-              onChange={(e) => setAssignee(e.target.value)}
-              required
-            />
-            <textarea
-              placeholder="用件メモ *"
-              value={memo}
-              onChange={(e) => setMemo(e.target.value)}
-              required
-              rows={3}
-            />
-            <input
-              type="datetime-local"
-              value={datetime}
-              onChange={(e) => setDatetime(e.target.value)}
-            />
-            <button type="submit" disabled={submitting}>
-              {submitting ? '登録中...' : '登録する'}
-            </button>
-          </form>
+            <form onSubmit={handleSubmit}>
+              <input type="tel" placeholder="電話番号 *" value={phone} onChange={(e) => setPhone(e.target.value)} required />
+              <input type="text" placeholder="顧客名 *" value={customerName} onChange={(e) => setCustomerName(e.target.value)} required />
+              <input type="text" placeholder="担当者名 *" value={assignee} onChange={(e) => setAssignee(e.target.value)} required />
+              <textarea placeholder="用件メモ *" value={memo} onChange={(e) => setMemo(e.target.value)} required rows={3} />
+              <input type="datetime-local" value={datetime} onChange={(e) => setDatetime(e.target.value)} />
+              <button type="submit" className="btn-primary" disabled={submitting}>
+                {submitting ? '登録中...' : '登録する'}
+              </button>
+            </form>
+          </div>
         </div>
 
-        {/* 右: コールバック一覧 */}
-        <div className="col-right">
-          <div className="list-section">
-            <div className="list-header">
-              <h2>コールバック一覧</h2>
-              <div className="list-controls">
-                <div className="filter-toggle">
-                  <button
-                    className={filterPending ? 'active' : ''}
-                    onClick={() => setFilterPending(true)}
-                  >
-                    未対応のみ
-                  </button>
-                  <button
-                    className={!filterPending ? 'active' : ''}
-                    onClick={() => setFilterPending(false)}
-                  >
-                    全件
-                  </button>
-                </div>
-                <input
-                  type="text"
-                  className="search-input"
-                  placeholder="電話番号・顧客名で検索"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                />
+        {/* 中央: 要対応リスト */}
+        <div className="col col-list">
+          <div className="panel">
+            <h2>要対応リスト</h2>
+            <div className="list-controls">
+              <div className="filter-toggle">
+                <button className={filterPending ? 'active' : ''} onClick={() => setFilterPending(true)}>未対応</button>
+                <button className={!filterPending ? 'active' : ''} onClick={() => setFilterPending(false)}>全件</button>
               </div>
+              <input type="text" className="search-input" placeholder="検索..." value={search} onChange={(e) => setSearch(e.target.value)} />
             </div>
 
-            {loading && records.length === 0 && <p className="loading">読み込み中...</p>}
+            {loading && records.length === 0 && <p className="empty">読み込み中...</p>}
+            {filteredGroups.length === 0 && !loading && <p className="empty">該当なし</p>}
 
-            {filtered.length === 0 && !loading && (
-              <p className="empty">該当するレコードがありません</p>
-            )}
+            <div className="group-list">
+              {filteredGroups.map((g) => {
+                const pendingCount = g.entries.filter((e) => e.status === 'pending').length
+                const totalCount = g.entries.filter((e) => !(e.memo || '').startsWith('【ステータス変更】')).length
+                const isSelected = selectedPhone === g.phone
+                const hasPending = pendingCount > 0
+                return (
+                  <div
+                    key={g.phone}
+                    className={`group-item ${isSelected ? 'selected' : ''} ${hasPending ? 'has-pending' : 'all-done'}`}
+                    onClick={() => setSelectedPhone(isSelected ? null : g.phone)}
+                  >
+                    <div className="group-header">
+                      <span className="group-name">{g.customer_name}</span>
+                      {hasPending && <span className="badge badge-pending">{pendingCount}件未対応</span>}
+                      {!hasPending && <span className="badge badge-done">対応済</span>}
+                    </div>
+                    <div className="group-phone">{g.phone}</div>
+                    <div className="group-meta">対応履歴 {totalCount}件</div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
 
-            <div className="records">
-              {filtered.map((r) => (
-                <div
-                  key={r.id}
-                  className={`record ${r.status === 'pending' ? 'record-pending' : 'record-done'}`}
-                >
-                  <div className="record-header">
-                    <span className="record-customer">{r.customer_name}</span>
-                    <span className={`badge badge-${r.status}`}>
-                      {r.status === 'pending' ? '未対応' : '対応済'}
-                    </span>
-                  </div>
-                  <div className="record-phone">{r.phone}</div>
-                  <div className="record-meta">
-                    <span>担当: {r.assignee}</span>
-                    <span>{(r.created_at || '').replace('T', ' ').slice(0, 16)}</span>
-                  </div>
-                  <div className="record-memo">{r.memo}</div>
-                  {r.status === 'pending' && (
-                    <button className="done-btn" onClick={() => handleDone(r.id)}>
-                      対応済みにする
-                    </button>
-                  )}
+        {/* 右: 対応ログ */}
+        <div className="col col-log">
+          <div className="panel">
+            {selectedGroup ? (
+              <>
+                <div className="log-header">
+                  <h2>{selectedGroup.customer_name}</h2>
+                  <div className="log-phone">{selectedGroup.phone}</div>
                 </div>
-              ))}
-            </div>
+                <div className="log-entries">
+                  {selectedEntries.map((r) => {
+                    const isStatusChange = (r.memo || '').startsWith('【ステータス変更】')
+                    return (
+                      <div key={r.id} className={`log-entry ${isStatusChange ? 'log-status-change' : ''} ${r.status === 'pending' ? 'log-pending' : 'log-done'}`}>
+                        <div className="log-entry-header">
+                          <span className="log-date">{(r.created_at || '').replace('T', ' ').slice(0, 16)}</span>
+                          <span className={`badge badge-${r.status}`}>
+                            {r.status === 'pending' ? '未対応' : '対応済'}
+                          </span>
+                        </div>
+                        {!isStatusChange && <div className="log-assignee">担当: {r.assignee}</div>}
+                        <div className={`log-memo ${isStatusChange ? 'log-memo-status' : ''}`}>{r.memo}</div>
+                        {r.status === 'pending' && !isStatusChange && (
+                          <button className="done-btn" onClick={() => handleDone(r.id)}>対応済みにする</button>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </>
+            ) : (
+              <div className="log-empty">
+                <div className="log-empty-icon">📋</div>
+                <p>要対応リストから顧客を選択すると<br />対応ログが表示されます</p>
+              </div>
+            )}
           </div>
         </div>
       </div>
