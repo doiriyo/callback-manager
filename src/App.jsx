@@ -1,18 +1,19 @@
 import { useState, useEffect, useCallback } from 'react'
 
 const GAS_URL = import.meta.env.VITE_GAS_URL
+const GAS_API_KEY = import.meta.env.VITE_GAS_API_KEY || ''
 
 function gasPost(body) {
   return fetch(GAS_URL, {
     method: 'POST',
     mode: 'no-cors',
     headers: { 'Content-Type': 'text/plain' },
-    body: JSON.stringify(body),
+    body: JSON.stringify({ ...body, api_key: GAS_API_KEY }),
   })
 }
 
 async function fetchCallbacks(status) {
-  const body = { action: 'get_callbacks' }
+  const body = { action: 'get_callbacks', api_key: GAS_API_KEY }
   if (status) body.status = status
   const res = await fetch(GAS_URL, {
     method: 'POST',
