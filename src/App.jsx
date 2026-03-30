@@ -43,16 +43,16 @@ function saveSession(name) {
   localStorage.setItem(SESSION_KEY, JSON.stringify({ name, timestamp: Date.now() }))
 }
 
-function groupByPhone(records) {
+function groupByCustomer(records) {
   const map = {}
   for (const r of records) {
     const phone = String(r.phone || '')
-    if (!map[phone]) {
-      map[phone] = { phone, customer_name: r.customer_name, entries: [] }
+    const name = String(r.customer_name || '')
+    const key = `${phone}::${name}`
+    if (!map[key]) {
+      map[key] = { key, phone, customer_name: name, entries: [] }
     }
-    map[phone].entries.push(r)
-    // 最新の顧客名で更新
-    if (r.customer_name) map[phone].customer_name = r.customer_name
+    map[key].entries.push(r)
   }
   return Object.values(map)
 }
@@ -67,7 +67,7 @@ export default function App() {
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  const [selectedPhone, setSelectedPhone] = useState(null)
+  const [selectedKey, setSelectedKey] = useState(null)
 
   // Form state
   const [phone, setPhone] = useState('')
@@ -139,7 +139,7 @@ export default function App() {
   }
 
   // グループ化 & フィルタリング
-  const groups = groupByPhone(records)
+  const groups = groupByCustomer(records)
   const filteredGroups = groups.filter((g) => {
     const hasPending = g.entries.some((e) => e.status === 'pending')
     if (filterPending && !hasPending) return false
@@ -158,7 +158,7 @@ export default function App() {
   })
 
   // 選択中の顧客のログ
-  const selectedGroup = selectedPhone ? groups.find((g) => g.phone === selectedPhone) : null
+  const selectedGroup = selectedKey ? groups.find((g) => g.key === selectedKey) : null
   const selectedEntries = selectedGroup
     ? [...selectedGroup.entries].sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''))
     : []
@@ -250,13 +250,13 @@ export default function App() {
               {filteredGroups.map((g) => {
                 const pendingCount = g.entries.filter((e) => e.status === 'pending').length
                 const totalCount = g.entries.filter((e) => !(e.memo || '').startsWith('【ステータス変更】')).length
-                const isSelected = selectedPhone === g.phone
+                const isSelected = selectedKey === g.key
                 const hasPending = pendingCount > 0
                 return (
                   <div
                     key={g.phone}
                     className={`group-item ${isSelected ? 'selected' : ''} ${hasPending ? 'has-pending' : 'all-done'}`}
-                    onClick={() => setSelectedPhone(isSelected ? null : g.phone)}
+                    onClick={() => setSelectedKey(isSelected ? null : g.key)}
                   >
                     <div className="group-header">
                       <span className="group-name">{g.customer_name}</span>
