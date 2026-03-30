@@ -112,12 +112,20 @@ export default function App() {
     }
   }, [])
 
+  const pollPausedUntilRef = useRef(0)
+
   useEffect(() => {
     if (!isLoggedIn) return
     loadRecords()
-    const interval = setInterval(loadRecords, 10000)
+    const interval = setInterval(() => {
+      if (Date.now() < pollPausedUntilRef.current) return
+      loadRecords()
+    }, 10000)
     return () => clearInterval(interval)
   }, [isLoggedIn, loadRecords])
+
+  // 楽観的更新後にポーリングを一時停止
+  const pausePoll = () => { pollPausedUntilRef.current = Date.now() + 8000 }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -147,6 +155,7 @@ export default function App() {
     setSubmitting(false)
 
     // バックグラウンドでGASに送信
+    pausePoll()
     gasPost({
       action: 'add_callback',
       phone: submitPhone,
@@ -197,7 +206,7 @@ export default function App() {
     setConfirmingId(null)
     setResolutionNote('')
 
-    // 対応内容メモがあれば先に送信
+    pausePoll()
     if (note) {
       const target = records.find((r) => r.id === id)
       if (target) {
@@ -232,6 +241,7 @@ export default function App() {
       }
       return updated
     })
+    pausePoll()
     gasPost({ action: 'update_callback', id, status: 'pending', operator: operatorName }).catch(() => {})
   }
 
@@ -261,16 +271,14 @@ export default function App() {
     setBulkConfirming(false)
     setBulkNote('')
 
-    // GASに送信
-    if (note) {
-      gasPost({
-        action: 'add_callback',
-        phone: group.phone,
-        customer_name: group.customer_name,
-        assignee: operatorName,
-        memo: `【全件対応】${note || '一括対応済み'}`,
-      }).catch(() => {})
-    }
+    pausePoll()
+    gasPost({
+      action: 'add_callback',
+      phone: group.phone,
+      customer_name: group.customer_name,
+      assignee: operatorName,
+      memo: `【全件対応】${note || '一括対応済み'}`,
+    }).catch(() => {})
     for (const id of pendingIds) {
       gasPost({ action: 'update_callback', id, status: 'done', operator: operatorName }).catch(() => {})
     }
