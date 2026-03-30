@@ -400,45 +400,77 @@ export default function App() {
                   )}
                 </div>
                 <div className="log-entries">
-                  {selectedEntries.map((r) => {
-                    const isStatusChange = (r.memo || '').startsWith('【ステータス変更】')
-                    const isResolution = (r.memo || '').startsWith('【対応内容】')
-                    const isConfirming = confirmingId === r.id
-                    return (
-                      <div key={r.id} className={`log-entry ${isStatusChange ? 'log-status-change' : ''} ${isResolution ? 'log-resolution' : ''} ${r.status === 'pending' ? 'log-pending' : 'log-done'}`}>
-                        <div className="log-entry-header">
-                          <span className="log-date">{(r.created_at || '').replace('T', ' ').slice(0, 16)}</span>
-                          <span className={`badge badge-${r.status}`}>
-                            {r.status === 'pending' ? '未対応' : '対応済'}
-                          </span>
-                        </div>
-                        {!isStatusChange && !isResolution && <div className="log-assignee">担当: {r.assignee}</div>}
-                        <div className={`log-memo ${isStatusChange ? 'log-memo-status' : ''} ${isResolution ? 'log-memo-resolution' : ''}`}>{r.memo}</div>
-                        {r.status === 'pending' && !isStatusChange && !isResolution && (
-                          isConfirming ? (
-                            <div className="confirm-done">
-                              <textarea
-                                value={resolutionNote}
-                                onChange={(e) => setResolutionNote(e.target.value)}
-                                placeholder="対応内容を入力（任意）"
-                                rows={2}
-                                className="confirm-textarea"
-                              />
-                              <div className="confirm-actions">
-                                <button className="confirm-btn" onClick={() => handleDone(r.id, resolutionNote)}>確定</button>
-                                <button className="cancel-btn" onClick={() => { setConfirmingId(null); setResolutionNote(''); }}>キャンセル</button>
-                              </div>
+                  {(() => {
+                    // ステータス変更ログを非表示にし、対応内容はステータス変更とマージ表示
+                    // 対応済み→未対応に戻した場合はその対応内容も非表示
+                    const entries = selectedEntries.filter(r => !(r.memo || '').startsWith('【ステータス変更】'))
+
+                    // 対応済み→未対応に戻された対応内容を特定して非表示にする
+                    // ロジック: 【対応内容】エントリの直後に同じphoneで未対応変更があれば非表示
+                    const statusChanges = selectedEntries.filter(r => (r.memo || '').startsWith('【ステータス変更】'))
+                    const revertedTimes = new Set()
+                    for (const sc of statusChanges) {
+                      if ((sc.memo || '').includes('未対応に変更')) {
+                        revertedTimes.add((sc.created_at || '').slice(0, 16))
+                      }
+                    }
+                    // 対応内容のうち、同じ分(±1分)に未対応戻しがあるものを非表示
+                    const visibleEntries = entries.filter(r => {
+                      if (!(r.memo || '').startsWith('【対応内容】')) return true
+                      const t = (r.created_at || '').slice(0, 16)
+                      return !revertedTimes.has(t)
+                    })
+
+                    return visibleEntries.map((r) => {
+                      const isResolution = (r.memo || '').startsWith('【対応内容】')
+                      const isConfirming = confirmingId === r.id
+                      const resolutionText = isResolution ? (r.memo || '').replace('【対応内容】', '') : ''
+                      return (
+                        <div key={r.id} className={`log-entry ${isResolution ? 'log-resolution' : ''} ${r.status === 'pending' ? 'log-pending' : 'log-done'}`}>
+                          {isResolution ? (
+                            <div className="resolution-compact">
+                              <span className="resolution-badge">✅ 対応済</span>
+                              <span className="resolution-text">{resolutionText}</span>
+                              <span className="resolution-meta">{r.assignee} {(r.created_at || '').replace('T', ' ').slice(0, 16)}</span>
                             </div>
                           ) : (
-                            <button className="done-btn" onClick={() => setConfirmingId(r.id)}>対応済みにする</button>
-                          )
-                        )}
-                        {r.status === 'done' && !isStatusChange && !isResolution && (
-                          <button className="reopen-btn" onClick={() => handleReopen(r.id)}>未対応に戻す</button>
-                        )}
-                      </div>
-                    )
-                  })}
+                            <>
+                              <div className="log-entry-header">
+                                <span className="log-date">{(r.created_at || '').replace('T', ' ').slice(0, 16)}</span>
+                                <span className={`badge badge-${r.status}`}>
+                                  {r.status === 'pending' ? '未対応' : '対応済'}
+                                </span>
+                              </div>
+                              <div className="log-assignee">担当: {r.assignee}</div>
+                              <div className="log-memo">{r.memo}</div>
+                              {r.status === 'pending' && (
+                                isConfirming ? (
+                                  <div className="confirm-done">
+                                    <textarea
+                                      value={resolutionNote}
+                                      onChange={(e) => setResolutionNote(e.target.value)}
+                                      placeholder="対応内容を入力（任意）"
+                                      rows={2}
+                                      className="confirm-textarea"
+                                    />
+                                    <div className="confirm-actions">
+                                      <button className="confirm-btn" onClick={() => handleDone(r.id, resolutionNote)}>確定</button>
+                                      <button className="cancel-btn" onClick={() => { setConfirmingId(null); setResolutionNote(''); }}>キャンセル</button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <button className="done-btn" onClick={() => setConfirmingId(r.id)}>対応済みにする</button>
+                                )
+                              )}
+                              {r.status === 'done' && (
+                                <button className="reopen-btn" onClick={() => handleReopen(r.id)}>未対応に戻す</button>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      )
+                    })
+                  })()}
                 </div>
               </>
             ) : (

@@ -465,8 +465,7 @@ h2 {
 }
 
 .log-entry.log-status-change {
-  background: #f5f5f5;
-  border-left: 4px solid #ff9800;
+  display: none;
 }
 
 .log-entry-header {
@@ -517,15 +516,39 @@ h2 {
   background: #ffebee;
 }
 
-/* 対応内容ログ */
+/* 対応内容ログ（コンパクト表示） */
 .log-resolution {
-  border-left: 4px solid #1565c0;
-  background: rgba(21, 101, 192, 0.04);
+  border-left: 4px solid #43a047;
+  background: #f1f8e9;
+  padding: 8px 12px;
 }
 
-.log-memo-resolution {
-  color: #1565c0;
-  font-weight: 500;
+.resolution-compact {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
+
+.resolution-badge {
+  font-weight: 700;
+  color: #43a047;
+  white-space: nowrap;
+  font-size: 0.75rem;
+}
+
+.resolution-text {
+  color: #333;
+  flex: 1;
+  min-width: 0;
+}
+
+.resolution-meta {
+  color: #999;
+  font-size: 0.7rem;
+  white-space: nowrap;
 }
 
 /* 対応済み確認フォーム */
