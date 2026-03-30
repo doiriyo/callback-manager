@@ -73,13 +73,11 @@ export default function App() {
         assignee,
         memo,
       })
-      // Reset form
       setPhone('')
       setCustomerName('')
       setAssignee('')
       setMemo('')
       setDatetime(toLocalDatetime())
-      // Wait briefly for GAS to process, then reload
       setTimeout(loadRecords, 1500)
     } catch (e) {
       console.error('登録エラー:', e)
@@ -101,7 +99,6 @@ export default function App() {
     }
   }
 
-  // Filtering
   const filtered = records.filter((r) => {
     if (filterPending && r.status !== 'pending') return false
     if (search) {
@@ -116,9 +113,10 @@ export default function App() {
   const pendingCount = records.filter((r) => r.status === 'pending').length
   const todayStr = new Date().toISOString().slice(0, 10)
   const todayCount = records.filter((r) => (r.created_at || '').slice(0, 10) === todayStr).length
+  const doneCount = records.filter((r) => r.status === 'done').length
 
   return (
-    <div className="container">
+    <div className="page">
       <h1>コールバック管理</h1>
 
       {/* サマリー */}
@@ -131,107 +129,120 @@ export default function App() {
           <div className="card-value">{todayCount}</div>
           <div className="card-label">本日登録</div>
         </div>
+        <div className="card done-card">
+          <div className="card-value">{doneCount}</div>
+          <div className="card-label">対応済</div>
+        </div>
       </div>
 
-      {/* 新規登録フォーム */}
-      <form className="form" onSubmit={handleSubmit}>
-        <h2>新規登録</h2>
-        <input
-          type="tel"
-          placeholder="電話番号 *"
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-          required
-        />
-        <input
-          type="text"
-          placeholder="顧客名 *"
-          value={customerName}
-          onChange={(e) => setCustomerName(e.target.value)}
-          required
-        />
-        <input
-          type="text"
-          placeholder="担当者名 *"
-          value={assignee}
-          onChange={(e) => setAssignee(e.target.value)}
-          required
-        />
-        <textarea
-          placeholder="用件メモ *"
-          value={memo}
-          onChange={(e) => setMemo(e.target.value)}
-          required
-          rows={3}
-        />
-        <input
-          type="datetime-local"
-          value={datetime}
-          onChange={(e) => setDatetime(e.target.value)}
-        />
-        <button type="submit" disabled={submitting}>
-          {submitting ? '登録中...' : '登録する'}
-        </button>
-      </form>
-
-      {/* コールバック一覧 */}
-      <div className="list-section">
-        <h2>コールバック一覧</h2>
-        <div className="list-controls">
-          <div className="filter-toggle">
-            <button
-              className={filterPending ? 'active' : ''}
-              onClick={() => setFilterPending(true)}
-            >
-              未対応のみ
+      {/* 2カラムレイアウト */}
+      <div className="columns">
+        {/* 左: 新規登録フォーム */}
+        <div className="col-left">
+          <form className="form" onSubmit={handleSubmit}>
+            <h2>新規登録</h2>
+            <input
+              type="tel"
+              placeholder="電話番号 *"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              required
+            />
+            <input
+              type="text"
+              placeholder="顧客名 *"
+              value={customerName}
+              onChange={(e) => setCustomerName(e.target.value)}
+              required
+            />
+            <input
+              type="text"
+              placeholder="担当者名 *"
+              value={assignee}
+              onChange={(e) => setAssignee(e.target.value)}
+              required
+            />
+            <textarea
+              placeholder="用件メモ *"
+              value={memo}
+              onChange={(e) => setMemo(e.target.value)}
+              required
+              rows={3}
+            />
+            <input
+              type="datetime-local"
+              value={datetime}
+              onChange={(e) => setDatetime(e.target.value)}
+            />
+            <button type="submit" disabled={submitting}>
+              {submitting ? '登録中...' : '登録する'}
             </button>
-            <button
-              className={!filterPending ? 'active' : ''}
-              onClick={() => setFilterPending(false)}
-            >
-              全件
-            </button>
-          </div>
-          <input
-            type="text"
-            className="search-input"
-            placeholder="電話番号・顧客名で検索"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+          </form>
         </div>
 
-        {loading && records.length === 0 && <p className="loading">読み込み中...</p>}
-
-        {filtered.length === 0 && !loading && (
-          <p className="empty">該当するレコードがありません</p>
-        )}
-
-        <div className="records">
-          {filtered.map((r) => (
-            <div
-              key={r.id}
-              className={`record ${r.status === 'pending' ? 'record-pending' : 'record-done'}`}
-            >
-              <div className="record-header">
-                <span className="record-customer">{r.customer_name}</span>
-                <span className={`badge badge-${r.status}`}>
-                  {r.status === 'pending' ? '未対応' : '対応済'}
-                </span>
+        {/* 右: コールバック一覧 */}
+        <div className="col-right">
+          <div className="list-section">
+            <div className="list-header">
+              <h2>コールバック一覧</h2>
+              <div className="list-controls">
+                <div className="filter-toggle">
+                  <button
+                    className={filterPending ? 'active' : ''}
+                    onClick={() => setFilterPending(true)}
+                  >
+                    未対応のみ
+                  </button>
+                  <button
+                    className={!filterPending ? 'active' : ''}
+                    onClick={() => setFilterPending(false)}
+                  >
+                    全件
+                  </button>
+                </div>
+                <input
+                  type="text"
+                  className="search-input"
+                  placeholder="電話番号・顧客名で検索"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
               </div>
-              <div className="record-phone">{r.phone}</div>
-              <div className="record-meta">
-                <span>担当: {r.assignee}</span>
-                <span>{(r.created_at || '').replace('T', ' ').slice(0, 16)}</span>
-              </div>
-              <div className="record-memo">{r.memo}</div>
-              {r.status === 'pending' && (
-                <button className="done-btn" onClick={() => handleDone(r.id)}>
-                  対応済みにする
-                </button>
-              )}
             </div>
-          ))}
+
+            {loading && records.length === 0 && <p className="loading">読み込み中...</p>}
+
+            {filtered.length === 0 && !loading && (
+              <p className="empty">該当するレコードがありません</p>
+            )}
+
+            <div className="records">
+              {filtered.map((r) => (
+                <div
+                  key={r.id}
+                  className={`record ${r.status === 'pending' ? 'record-pending' : 'record-done'}`}
+                >
+                  <div className="record-header">
+                    <span className="record-customer">{r.customer_name}</span>
+                    <span className={`badge badge-${r.status}`}>
+                      {r.status === 'pending' ? '未対応' : '対応済'}
+                    </span>
+                  </div>
+                  <div className="record-phone">{r.phone}</div>
+                  <div className="record-meta">
+                    <span>担当: {r.assignee}</span>
+                    <span>{(r.created_at || '').replace('T', ' ').slice(0, 16)}</span>
+                  </div>
+                  <div className="record-memo">{r.memo}</div>
+                  {r.status === 'pending' && (
+                    <button className="done-btn" onClick={() => handleDone(r.id)}>
+                      対応済みにする
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     </div>
