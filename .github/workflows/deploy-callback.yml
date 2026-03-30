@@ -9,6 +9,7 @@ on:
       - 'index.html'
       - 'vite.config.js'
       - 'package.json'
+      - '.github/workflows/**'
 
 jobs:
   build-and-deploy:
@@ -22,6 +23,8 @@ jobs:
           node-version: '20'
 
       - name: Install & Build
+        env:
+          VITE_GAS_URL: ${{ secrets.VITE_GAS_URL }}
         run: |
           npm install
           npm run build
