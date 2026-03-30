@@ -11,6 +11,49 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* ログイン画面 */
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f0f2f5;
+}
+
+.login-box {
+  background: #fff;
+  border-radius: 12px;
+  padding: 32px;
+  width: 320px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+  text-align: center;
+}
+
+.login-box h1 {
+  margin-bottom: 8px;
+}
+
+.login-desc {
+  font-size: 0.85rem;
+  color: #888;
+  margin-bottom: 20px;
+}
+
+.login-box input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  margin-bottom: 12px;
+}
+
+.login-box input:focus {
+  outline: none;
+  border-color: #1a237e;
+  box-shadow: 0 0 0 2px rgba(26, 35, 126, 0.12);
+}
+
 .page {
   height: 100vh;
   display: flex;
@@ -27,6 +70,34 @@ body {
   align-items: center;
   gap: 24px;
   flex-shrink: 0;
+}
+
+.user-info {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.user-name {
+  font-size: 0.85rem;
+  color: #333;
+  font-weight: 600;
+}
+
+.btn-logout {
+  padding: 4px 12px;
+  background: #f5f5f5;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  color: #666;
+  cursor: pointer;
+}
+
+.btn-logout:hover {
+  background: #eee;
 }
 
 h1 {

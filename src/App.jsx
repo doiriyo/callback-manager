@@ -29,6 +29,26 @@ function toLocalDatetime() {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
+const SESSION_KEY = 'callback_session'
+const SESSION_TTL = 12 * 60 * 60 * 1000 // 12時間
+
+function loadSession() {
+  try {
+    const raw = localStorage.getItem(SESSION_KEY)
+    if (!raw) return null
+    const s = JSON.parse(raw)
+    if (Date.now() - s.timestamp > SESSION_TTL) {
+      localStorage.removeItem(SESSION_KEY)
+      return null
+    }
+    return s.name
+  } catch { return null }
+}
+
+function saveSession(name) {
+  localStorage.setItem(SESSION_KEY, JSON.stringify({ name, timestamp: Date.now() }))
+}
+
 function groupByPhone(records) {
   const map = {}
   for (const r of records) {
@@ -44,6 +64,10 @@ function groupByPhone(records) {
 }
 
 export default function App() {
+  const [operatorName, setOperatorName] = useState(() => loadSession() || '')
+  const [loginInput, setLoginInput] = useState('')
+  const isLoggedIn = !!operatorName
+
   const [records, setRecords] = useState([])
   const [filterPending, setFilterPending] = useState(true)
   const [search, setSearch] = useState('')
@@ -54,9 +78,23 @@ export default function App() {
   // Form state
   const [phone, setPhone] = useState('')
   const [customerName, setCustomerName] = useState('')
-  const [assignee, setAssignee] = useState('')
+  const [assignee, setAssignee] = useState(() => loadSession() || '')
   const [memo, setMemo] = useState('')
   const [datetime, setDatetime] = useState(toLocalDatetime())
+
+  const handleLogin = () => {
+    const name = loginInput.trim()
+    if (!name) return
+    saveSession(name)
+    setOperatorName(name)
+    setAssignee(name)
+    setLoginInput('')
+  }
+
+  const handleLogout = () => {
+    localStorage.removeItem(SESSION_KEY)
+    setOperatorName('')
+  }
 
   const loadRecords = useCallback(async () => {
     try {
@@ -89,7 +127,7 @@ export default function App() {
       })
       setPhone('')
       setCustomerName('')
-      setAssignee('')
+      setAssignee(operatorName)
       setMemo('')
       setDatetime(toLocalDatetime())
       setTimeout(loadRecords, 1500)
@@ -102,7 +140,7 @@ export default function App() {
 
   const handleDone = async (id) => {
     try {
-      await gasPost({ action: 'update_callback', id, status: 'done' })
+      await gasPost({ action: 'update_callback', id, status: 'done', operator: operatorName })
       setTimeout(loadRecords, 1500)
     } catch (e) {
       console.error('更新エラー:', e)
@@ -140,6 +178,28 @@ export default function App() {
   const todayCount = records.filter((r) => (r.created_at || '').slice(0, 10) === todayStr && !(r.memo || '').startsWith('【ステータス変更】')).length
   const donePhones = groups.filter((g) => g.entries.every((e) => e.status === 'done')).length
 
+  if (!isLoggedIn) {
+    return (
+      <div className="login-page">
+        <div className="login-box">
+          <h1>コールバック管理</h1>
+          <p className="login-desc">担当者名を入力してログイン</p>
+          <input
+            type="text"
+            placeholder="名前を入力"
+            value={loginInput}
+            onChange={(e) => setLoginInput(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
+            autoFocus
+          />
+          <button className="btn-primary" onClick={handleLogin} disabled={!loginInput.trim()}>
+            ログイン
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="page">
       <header className="page-header">
@@ -157,6 +217,10 @@ export default function App() {
             <div className="card-value">{donePhones}</div>
             <div className="card-label">対応済</div>
           </div>
+        </div>
+        <div className="user-info">
+          <span className="user-name">{operatorName}</span>
+          <button className="btn-logout" onClick={handleLogout}>ログアウト</button>
         </div>
       </header>
 
