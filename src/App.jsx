@@ -156,13 +156,29 @@ export default function App() {
     }).catch(() => {})
   }
 
-  const handleDone = async (id) => {
-    // 楽観的UI更新: 即座にステータスを変更 + ログエントリを仮追加
+  // ステータス変更: 対応済み / 未対応に戻す
+  const [confirmingId, setConfirmingId] = useState(null) // 対応済み確認中のエントリID
+  const [resolutionNote, setResolutionNote] = useState('')
+
+  const handleDone = (id, note) => {
     const now = new Date().toISOString()
     setRecords((prev) => {
       const target = prev.find((r) => r.id === id)
       const updated = prev.map((r) => r.id === id ? { ...r, status: 'done', updated_at: now } : r)
       if (target) {
+        // 対応内容メモを追加
+        if (note) {
+          updated.push({
+            id: String(Date.now() - 1),
+            phone: target.phone,
+            customer_name: target.customer_name,
+            assignee: operatorName,
+            memo: `【対応内容】${note}`,
+            created_at: now,
+            status: 'done',
+            updated_at: now,
+          })
+        }
         updated.push({
           id: String(Date.now()),
           phone: target.phone,
@@ -176,9 +192,45 @@ export default function App() {
       }
       return updated
     })
+    setConfirmingId(null)
+    setResolutionNote('')
 
-    // バックグラウンドでGASに送信
+    // 対応内容メモがあれば先に送信
+    if (note) {
+      const target = records.find((r) => r.id === id)
+      if (target) {
+        gasPost({
+          action: 'add_callback',
+          phone: target.phone,
+          customer_name: target.customer_name,
+          assignee: operatorName,
+          memo: `【対応内容】${note}`,
+        }).catch(() => {})
+      }
+    }
     gasPost({ action: 'update_callback', id, status: 'done', operator: operatorName }).catch(() => {})
+  }
+
+  const handleReopen = (id) => {
+    const now = new Date().toISOString()
+    setRecords((prev) => {
+      const target = prev.find((r) => r.id === id)
+      const updated = prev.map((r) => r.id === id ? { ...r, status: 'pending', updated_at: now } : r)
+      if (target) {
+        updated.push({
+          id: String(Date.now()),
+          phone: target.phone,
+          customer_name: target.customer_name,
+          assignee: '',
+          memo: `【ステータス変更】未対応に変更（${operatorName}）`,
+          created_at: now,
+          status: 'pending',
+          updated_at: now,
+        })
+      }
+      return updated
+    })
+    gasPost({ action: 'update_callback', id, status: 'pending', operator: operatorName }).catch(() => {})
   }
 
   // グループ化 & フィルタリング
@@ -350,18 +402,39 @@ export default function App() {
                 <div className="log-entries">
                   {selectedEntries.map((r) => {
                     const isStatusChange = (r.memo || '').startsWith('【ステータス変更】')
+                    const isResolution = (r.memo || '').startsWith('【対応内容】')
+                    const isConfirming = confirmingId === r.id
                     return (
-                      <div key={r.id} className={`log-entry ${isStatusChange ? 'log-status-change' : ''} ${r.status === 'pending' ? 'log-pending' : 'log-done'}`}>
+                      <div key={r.id} className={`log-entry ${isStatusChange ? 'log-status-change' : ''} ${isResolution ? 'log-resolution' : ''} ${r.status === 'pending' ? 'log-pending' : 'log-done'}`}>
                         <div className="log-entry-header">
                           <span className="log-date">{(r.created_at || '').replace('T', ' ').slice(0, 16)}</span>
                           <span className={`badge badge-${r.status}`}>
                             {r.status === 'pending' ? '未対応' : '対応済'}
                           </span>
                         </div>
-                        {!isStatusChange && <div className="log-assignee">担当: {r.assignee}</div>}
-                        <div className={`log-memo ${isStatusChange ? 'log-memo-status' : ''}`}>{r.memo}</div>
-                        {r.status === 'pending' && !isStatusChange && (
-                          <button className="done-btn" onClick={() => handleDone(r.id)}>対応済みにする</button>
+                        {!isStatusChange && !isResolution && <div className="log-assignee">担当: {r.assignee}</div>}
+                        <div className={`log-memo ${isStatusChange ? 'log-memo-status' : ''} ${isResolution ? 'log-memo-resolution' : ''}`}>{r.memo}</div>
+                        {r.status === 'pending' && !isStatusChange && !isResolution && (
+                          isConfirming ? (
+                            <div className="confirm-done">
+                              <textarea
+                                value={resolutionNote}
+                                onChange={(e) => setResolutionNote(e.target.value)}
+                                placeholder="対応内容を入力（任意）"
+                                rows={2}
+                                className="confirm-textarea"
+                              />
+                              <div className="confirm-actions">
+                                <button className="confirm-btn" onClick={() => handleDone(r.id, resolutionNote)}>確定</button>
+                                <button className="cancel-btn" onClick={() => { setConfirmingId(null); setResolutionNote(''); }}>キャンセル</button>
+                              </div>
+                            </div>
+                          ) : (
+                            <button className="done-btn" onClick={() => setConfirmingId(r.id)}>対応済みにする</button>
+                          )
+                        )}
+                        {r.status === 'done' && !isStatusChange && !isResolution && (
+                          <button className="reopen-btn" onClick={() => handleReopen(r.id)}>未対応に戻す</button>
                         )}
                       </div>
                     )
