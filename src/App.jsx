@@ -246,7 +246,7 @@ export default function App() {
   }
 
   const handleBulkDone = (group, note) => {
-    const pendingIds = group.entries.filter(e => e.status === 'pending' && !(e.memo || '').startsWith('【ステータス変更】') && !(e.memo || '').startsWith('【対応内容】')).map(e => e.id)
+    const pendingIds = group.entries.filter(e => e.status === 'pending').map(e => e.id)
     if (pendingIds.length === 0) return
     const now = new Date().toISOString()
 
@@ -442,7 +442,7 @@ export default function App() {
                     <button className="btn-reuse" onClick={() => { setPhone(selectedGroup.phone); setCustomerName(selectedGroup.customer_name); }}>
                       この連絡先で新規追加
                     </button>
-                    {selectedGroup.entries.filter(e => e.status === 'pending' && !(e.memo || '').startsWith('【ステータス変更】') && !(e.memo || '').startsWith('【対応内容】') && !(e.memo || '').startsWith('【全件対応】')).length >= 2 && (
+                    {selectedGroup.entries.filter(e => e.status === 'pending').length >= 2 && (
                       <button className="btn-bulk-done" onClick={() => setBulkConfirming(true)}>
                         すべて対応済みにする
                       </button>
