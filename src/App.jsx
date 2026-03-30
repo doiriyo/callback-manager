@@ -101,10 +101,11 @@ export default function App() {
   }, [])
 
   useEffect(() => {
+    if (!isLoggedIn) return
     loadRecords()
     const interval = setInterval(loadRecords, 30000)
     return () => clearInterval(interval)
-  }, [loadRecords])
+  }, [isLoggedIn, loadRecords])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
