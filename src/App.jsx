@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 
 const GAS_URL = import.meta.env.VITE_GAS_URL
 const GAS_API_KEY = import.meta.env.VITE_GAS_API_KEY || ''
