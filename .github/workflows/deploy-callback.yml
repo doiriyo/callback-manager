@@ -25,6 +25,7 @@ jobs:
       - name: Install & Build
         env:
           VITE_GAS_URL: ${{ secrets.VITE_GAS_URL }}
+          VITE_GAS_API_KEY: ${{ secrets.VITE_GAS_API_KEY }}
         run: |
           npm install
           npm run build
