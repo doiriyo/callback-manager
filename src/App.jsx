@@ -103,39 +103,70 @@ export default function App() {
   useEffect(() => {
     if (!isLoggedIn) return
     loadRecords()
-    const interval = setInterval(loadRecords, 30000)
+    const interval = setInterval(loadRecords, 10000)
     return () => clearInterval(interval)
   }, [isLoggedIn, loadRecords])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setSubmitting(true)
-    try {
-      await gasPost({
-        action: 'add_callback',
-        phone,
-        customer_name: customerName,
-        assignee: operatorName,
-        memo,
-      })
-      setPhone('')
-      setCustomerName('')
-      setMemo('')
-      setTimeout(loadRecords, 1500)
-    } catch (e) {
-      console.error('登録エラー:', e)
-    } finally {
-      setSubmitting(false)
-    }
+
+    const tempId = String(Date.now())
+    const now = new Date().toISOString()
+
+    // 楽観的UI更新: 即座にローカルstateに追加
+    setRecords((prev) => [...prev, {
+      id: tempId,
+      phone,
+      customer_name: customerName,
+      assignee: operatorName,
+      memo,
+      created_at: now,
+      status: 'pending',
+      updated_at: now,
+    }])
+
+    const submitPhone = phone
+    const submitName = customerName
+    const submitMemo = memo
+    setPhone('')
+    setCustomerName('')
+    setMemo('')
+    setSubmitting(false)
+
+    // バックグラウンドでGASに送信
+    gasPost({
+      action: 'add_callback',
+      phone: submitPhone,
+      customer_name: submitName,
+      assignee: operatorName,
+      memo: submitMemo,
+    }).catch(() => {})
   }
 
   const handleDone = async (id) => {
-    try {
-      await gasPost({ action: 'update_callback', id, status: 'done', operator: operatorName })
-      setTimeout(loadRecords, 1500)
-    } catch (e) {
-      console.error('更新エラー:', e)
-    }
+    // 楽観的UI更新: 即座にステータスを変更 + ログエントリを仮追加
+    const now = new Date().toISOString()
+    setRecords((prev) => {
+      const target = prev.find((r) => r.id === id)
+      const updated = prev.map((r) => r.id === id ? { ...r, status: 'done', updated_at: now } : r)
+      if (target) {
+        updated.push({
+          id: String(Date.now()),
+          phone: target.phone,
+          customer_name: target.customer_name,
+          assignee: '',
+          memo: `【ステータス変更】対応済みに変更（${operatorName}）`,
+          created_at: now,
+          status: 'done',
+          updated_at: now,
+        })
+      }
+      return updated
+    })
+
+    // バックグラウンドでGASに送信
+    gasPost({ action: 'update_callback', id, status: 'done', operator: operatorName }).catch(() => {})
   }
 
   // グループ化 & フィルタリング
