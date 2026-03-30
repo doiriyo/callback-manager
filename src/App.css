@@ -551,6 +551,39 @@ h2 {
   white-space: nowrap;
 }
 
+.resolution-badge.bulk {
+  color: #1565c0;
+}
+
+/* 全件対応ログ */
+.log-bulk-done {
+  border-left: 4px solid #1565c0;
+  background: #e3f2fd;
+  padding: 8px 12px;
+}
+
+/* すべて対応済みにするボタン */
+.btn-bulk-done {
+  padding: 6px 12px;
+  background: #fff3e0;
+  border: 1px solid #e65100;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  color: #e65100;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.btn-bulk-done:hover {
+  background: #ffe0b2;
+}
+
+.bulk-confirm {
+  margin-top: 8px;
+}
+
 /* 対応済み確認フォーム */
 .confirm-done {
   margin-top: 6px;

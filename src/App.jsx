@@ -157,8 +157,10 @@ export default function App() {
   }
 
   // ステータス変更: 対応済み / 未対応に戻す
-  const [confirmingId, setConfirmingId] = useState(null) // 対応済み確認中のエントリID
+  const [confirmingId, setConfirmingId] = useState(null)
   const [resolutionNote, setResolutionNote] = useState('')
+  const [bulkConfirming, setBulkConfirming] = useState(false)
+  const [bulkNote, setBulkNote] = useState('')
 
   const handleDone = (id, note) => {
     const now = new Date().toISOString()
@@ -231,6 +233,47 @@ export default function App() {
       return updated
     })
     gasPost({ action: 'update_callback', id, status: 'pending', operator: operatorName }).catch(() => {})
+  }
+
+  const handleBulkDone = (group, note) => {
+    const pendingIds = group.entries.filter(e => e.status === 'pending' && !(e.memo || '').startsWith('【ステータス変更】') && !(e.memo || '').startsWith('【対応内容】')).map(e => e.id)
+    if (pendingIds.length === 0) return
+    const now = new Date().toISOString()
+
+    setRecords((prev) => {
+      let updated = [...prev]
+      for (const id of pendingIds) {
+        updated = updated.map(r => r.id === id ? { ...r, status: 'done', updated_at: now } : r)
+      }
+      // 全件対応の対応内容ログを1件追加
+      updated.push({
+        id: String(Date.now()),
+        phone: group.phone,
+        customer_name: group.customer_name,
+        assignee: operatorName,
+        memo: `【全件対応】${note || '一括対応済み'}`,
+        created_at: now,
+        status: 'done',
+        updated_at: now,
+      })
+      return updated
+    })
+    setBulkConfirming(false)
+    setBulkNote('')
+
+    // GASに送信
+    if (note) {
+      gasPost({
+        action: 'add_callback',
+        phone: group.phone,
+        customer_name: group.customer_name,
+        assignee: operatorName,
+        memo: `【全件対応】${note || '一括対応済み'}`,
+      }).catch(() => {})
+    }
+    for (const id of pendingIds) {
+      gasPost({ action: 'update_callback', id, status: 'done', operator: operatorName }).catch(() => {})
+    }
   }
 
   // グループ化 & フィルタリング
@@ -391,7 +434,28 @@ export default function App() {
                     <button className="btn-reuse" onClick={() => { setPhone(selectedGroup.phone); setCustomerName(selectedGroup.customer_name); }}>
                       この連絡先で新規追加
                     </button>
+                    {selectedGroup.entries.filter(e => e.status === 'pending' && !(e.memo || '').startsWith('【ステータス変更】') && !(e.memo || '').startsWith('【対応内容】') && !(e.memo || '').startsWith('【全件対応】')).length >= 2 && (
+                      <button className="btn-bulk-done" onClick={() => setBulkConfirming(true)}>
+                        すべて対応済みにする
+                      </button>
+                    )}
                   </div>
+                  {bulkConfirming && (
+                    <div className="bulk-confirm">
+                      <textarea
+                        value={bulkNote}
+                        onChange={(e) => setBulkNote(e.target.value)}
+                        placeholder="対応内容を入力（任意）"
+                        rows={2}
+                        className="confirm-textarea"
+                        autoFocus
+                      />
+                      <div className="confirm-actions">
+                        <button className="confirm-btn" onClick={() => handleBulkDone(selectedGroup, bulkNote)}>全件対応済みにする</button>
+                        <button className="cancel-btn" onClick={() => { setBulkConfirming(false); setBulkNote(''); }}>キャンセル</button>
+                      </div>
+                    </div>
+                  )}
                   {(selectedGroup.contract_name || selectedGroup.contract_address) && (
                     <div className="log-contract">
                       {selectedGroup.contract_name && <span>契約者: {selectedGroup.contract_name}</span>}
@@ -423,14 +487,17 @@ export default function App() {
 
                     return visibleEntries.map((r) => {
                       const isResolution = (r.memo || '').startsWith('【対応内容】')
+                      const isBulkDone = (r.memo || '').startsWith('【全件対応】')
+                      const isCompact = isResolution || isBulkDone
                       const isConfirming = confirmingId === r.id
-                      const resolutionText = isResolution ? (r.memo || '').replace('【対応内容】', '') : ''
+                      const compactText = isResolution ? (r.memo || '').replace('【対応内容】', '') : isBulkDone ? (r.memo || '').replace('【全件対応】', '') : ''
+                      const compactLabel = isBulkDone ? '✅ 全件対応' : '✅ 対応済'
                       return (
-                        <div key={r.id} className={`log-entry ${isResolution ? 'log-resolution' : ''} ${r.status === 'pending' ? 'log-pending' : 'log-done'}`}>
-                          {isResolution ? (
+                        <div key={r.id} className={`log-entry ${isCompact ? (isBulkDone ? 'log-bulk-done' : 'log-resolution') : ''} ${r.status === 'pending' ? 'log-pending' : 'log-done'}`}>
+                          {isCompact ? (
                             <div className="resolution-compact">
-                              <span className="resolution-badge">✅ 対応済</span>
-                              <span className="resolution-text">{resolutionText}</span>
+                              <span className={`resolution-badge ${isBulkDone ? 'bulk' : ''}`}>{compactLabel}</span>
+                              <span className="resolution-text">{compactText}</span>
                               <span className="resolution-meta">{r.assignee} {(r.created_at || '').replace('T', ' ').slice(0, 16)}</span>
                             </div>
                           ) : (
