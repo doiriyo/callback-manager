@@ -23,12 +23,6 @@ async function fetchCallbacks() {
   return data.records || []
 }
 
-function toLocalDatetime() {
-  const d = new Date()
-  const pad = (n) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
-}
-
 const SESSION_KEY = 'callback_session'
 const SESSION_TTL = 12 * 60 * 60 * 1000 // 12時間
 
@@ -78,9 +72,7 @@ export default function App() {
   // Form state
   const [phone, setPhone] = useState('')
   const [customerName, setCustomerName] = useState('')
-  const [assignee, setAssignee] = useState(() => loadSession() || '')
   const [memo, setMemo] = useState('')
-  const [datetime, setDatetime] = useState(toLocalDatetime())
 
   const handleLogin = () => {
     const name = loginInput.trim()
@@ -122,14 +114,12 @@ export default function App() {
         action: 'add_callback',
         phone,
         customer_name: customerName,
-        assignee,
+        assignee: operatorName,
         memo,
       })
       setPhone('')
       setCustomerName('')
-      setAssignee(operatorName)
       setMemo('')
-      setDatetime(toLocalDatetime())
       setTimeout(loadRecords, 1500)
     } catch (e) {
       console.error('登録エラー:', e)
@@ -230,11 +220,9 @@ export default function App() {
           <div className="panel">
             <h2>新規登録</h2>
             <form onSubmit={handleSubmit}>
-              <input type="tel" placeholder="電話番号 *" value={phone} onChange={(e) => setPhone(e.target.value)} required />
-              <input type="text" placeholder="顧客名 *" value={customerName} onChange={(e) => setCustomerName(e.target.value)} required />
-              <input type="text" placeholder="担当者名 *" value={assignee} onChange={(e) => setAssignee(e.target.value)} required />
-              <textarea placeholder="用件メモ *" value={memo} onChange={(e) => setMemo(e.target.value)} required rows={3} />
-              <input type="datetime-local" value={datetime} onChange={(e) => setDatetime(e.target.value)} />
+              <input type="tel" placeholder="電話番号" value={phone} onChange={(e) => setPhone(e.target.value)} required />
+              <input type="text" placeholder="顧客名" value={customerName} onChange={(e) => setCustomerName(e.target.value)} required />
+              <textarea placeholder="用件メモ" value={memo} onChange={(e) => setMemo(e.target.value)} required rows={3} />
               <button type="submit" className="btn-primary" disabled={submitting}>
                 {submitting ? '登録中...' : '登録する'}
               </button>
