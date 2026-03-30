@@ -58,7 +58,16 @@ function groupByCustomer(records) {
 }
 
 export default function App() {
-  const [operatorName, setOperatorName] = useState(() => loadSession() || '')
+  const [operatorName, setOperatorName] = useState(() => {
+    // URLパラメータからの自動ログイン（Electron iframe経由）
+    const params = new URLSearchParams(window.location.search)
+    const urlOperator = params.get('operator')
+    if (urlOperator) {
+      saveSession(urlOperator)
+      return urlOperator
+    }
+    return loadSession() || ''
+  })
   const [loginInput, setLoginInput] = useState('')
   const isLoggedIn = !!operatorName
 
