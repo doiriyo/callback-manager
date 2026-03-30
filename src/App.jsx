@@ -290,13 +290,13 @@ export default function App() {
             {selectedGroup ? (
               <>
                 <div className="log-header">
+                  <h2>{selectedGroup.customer_name}</h2>
                   <div className="log-header-info">
-                    <h2>{selectedGroup.customer_name}</h2>
                     <div className="log-phone">{selectedGroup.phone}</div>
+                    <button className="btn-reuse" onClick={() => { setPhone(selectedGroup.phone); setCustomerName(selectedGroup.customer_name); }}>
+                      この連絡先で新規追加
+                    </button>
                   </div>
-                  <button className="btn-reuse" onClick={() => { setPhone(selectedGroup.phone); setCustomerName(selectedGroup.customer_name); }}>
-                    この連絡先で新規追加
-                  </button>
                 </div>
                 <div className="log-entries">
                   {selectedEntries.map((r) => {
