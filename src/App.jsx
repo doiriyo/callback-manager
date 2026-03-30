@@ -173,7 +173,7 @@ export default function App() {
     return (
       <div className="login-page">
         <div className="login-box">
-          <h1>コールバック管理</h1>
+          <h1>TWC電話応対マネージャー</h1>
           <p className="login-desc">担当者名を入力してログイン</p>
           <input
             type="text"
@@ -194,7 +194,7 @@ export default function App() {
   return (
     <div className="page">
       <header className="page-header">
-        <h1>コールバック管理</h1>
+        <h1>TWC電話応対マネージャー</h1>
         <div className="summary">
           <div className="card pending-card">
             <div className="card-value">{pendingPhones}</div>
