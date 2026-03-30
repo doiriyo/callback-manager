@@ -1,0 +1,2 @@
+Header set X-Frame-Options "ALLOWALL"
+Header set Content-Security-Policy "frame-ancestors *"
