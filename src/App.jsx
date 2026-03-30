@@ -50,9 +50,12 @@ function groupByCustomer(records) {
     const name = String(r.customer_name || '')
     const key = `${phone}::${name}`
     if (!map[key]) {
-      map[key] = { key, phone, customer_name: name, entries: [] }
+      map[key] = { key, phone, customer_name: name, contract_name: '', contract_address: '', entries: [] }
     }
     map[key].entries.push(r)
+    // 契約者情報は最新の非空値で更新
+    if (r.contract_name) map[key].contract_name = r.contract_name
+    if (r.contract_address) map[key].contract_address = r.contract_address
   }
   return Object.values(map)
 }
@@ -337,6 +340,12 @@ export default function App() {
                       この連絡先で新規追加
                     </button>
                   </div>
+                  {(selectedGroup.contract_name || selectedGroup.contract_address) && (
+                    <div className="log-contract">
+                      {selectedGroup.contract_name && <span>契約者: {selectedGroup.contract_name}</span>}
+                      {selectedGroup.contract_address && <span>住所: {selectedGroup.contract_address}</span>}
+                    </div>
+                  )}
                 </div>
                 <div className="log-entries">
                   {selectedEntries.map((r) => {
